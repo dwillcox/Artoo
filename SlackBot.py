@@ -38,9 +38,6 @@ class SlackBotInterface(SlackClient):
         # Get Bot ID and Token from bot_id_file
         self.read_token_from_file(bot_id_file)
 
-        print('Using token: {}'.format(self.token))
-        print('Using ID: {}'.format(self.identity))
-        
         # Initialize parent class
         super(SlackBotInterface, self).__init__(self.token)
         
