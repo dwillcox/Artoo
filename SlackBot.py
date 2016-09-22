@@ -147,6 +147,49 @@ class SlackBotInterface(SlackClient):
         # NEED TO SANITIZE file_url to prevent sending bot token to non-slack URL's
         r = requests.get(file_url, headers=self.request_headers)
         return r.content.decode()
+
+    def get_code_from_regions(self, base_text):
+        # Gets code from code regions denoted by ``` (open) and ``` (close)
+        code_extract = ''
+        code_denote = '```'
+        code_indices = []
+        for re_match in re.finditer(code_denote, base_text):
+            code_indices.append(re_match.start())
+        if len(code_indices)==0:
+            code_extract = None
+        elif len(code_indices) % 2 == 1:
+            code_extract = '!ODD'
+        else:
+            npairs = int(len(code_indices)/2)
+            for j in range(npairs):
+                idx_end = code_indices.pop() 
+                idx_begin = code_indices.pop() + len(code_denote)
+                code_snippet = base_text[idx_begin:idx_end]
+                code_extract = code_snippet + '\n' + code_extract
+        return code_extract
+
+    def get_message_code(self, tagged_message):
+        # Extract code from message, return (message_code, file_url)
+        # Determine if there is a file to run or if there are code block(s)
+        file_url = self.get_message_file_url(tagged_message)
+        message_code = None
+        if file_url:
+            # Download a file if supplied in file_url
+            message_code = self.download_file_content(file_url)
+        else:
+            # If no file supplied, extract the code region(s) in this text
+            tagged_text = self.get_message_text(tagged_message)
+            message_code = self.get_code_from_regions(tagged_text)
+            if message_code=='!ODD':
+                message_code = None
+        if message_code:
+            # Use the universal newline support of str.splitlines() to
+            # replace the newlines in message_code with the system line ending.
+            # I'm joining with '\n' because when writing message_code in text mode
+            # python will interpret this as whatever the system line ending actually is.
+            # (Slack uses DOS line endings, ewww)
+            message_code = '\n'.join(message_code.splitlines())
+        return message_code, file_url
     
     def ins_confused(self, tagged_message):
         # Formulate a confused reply

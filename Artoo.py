@@ -43,103 +43,104 @@ class Artoo(SlackBotInterface):
 
         # Add Artoo's instructions to the instruction set
         self.instruction_set['help'] = self.ins_only_hope
+        self.instruction_set['bash'] = self.ins_run_bash
         self.instruction_set['python'] = self.ins_run_python
 
-        # Timeout for running python programs
-        self.PY_TIMEOUT_SECS = 300 # 5 minutes
+        # Timeout for running external processes
+        self.PROC_TIMEOUT_SECS = 300 # 5 minutes
 
-    def run_python_file(self, fname):
-        proc = Popen(['python',fname], stdout=PIPE, stderr=PIPE)
+    def open_process(self, program_list):
+        # Opens a subprocess using Popen
+        # Popen is passed program_list to run
+        # Return STDOUT, STDERR, and EXITCODE
+        proc = Popen(program_list, stdout=PIPE, stderr=PIPE)
         try:
-            out, err = proc.communicate(timeout=self.PY_TIMEOUT_SECS)
+            out, err = proc.communicate(timeout=self.PROC_TIMEOUT_SECS)
             exitcode = proc.returncode
         except TimeoutExpired:
             proc.kill()
             out, err = proc.communicate()
-            exitcode = 'Artoo halted execution after {} seconds'.format(self.PY_TIMEOUT_SECS)
-
-        # Tell the console what we did.
-        # print('code:')
-        # print(code)
-        # print('out:')
-        # print(out.decode())
-        # print('err:')
-        # print(err.decode())
-        # print('return code:')
-        # print(exitcode)
-
-        # delete temp file
-        print('Deleting temp file: {}'.format(fname))
-        os.remove(fname)
+            exitcode = 'Halted execution after {} seconds'.format(self.PROC_TIMEOUT_SECS)
         return out.decode(), err.decode(), exitcode
+    
+    def write_to_temp(self, content):
+        # Write content to a NamedTemporaryFile and return the file handle
+        ftemp = NamedTemporaryFile(mode='w', delete=False)
+        ftemp.write(content)
+        ftemp.close()
+        return ftemp
+
+    def delete_temp(self, temp_handle):
+        # Delete the NamedTemporaryFile with handle temp_handle
+        print('Deleting file: {}'.format(temp_handle.name))
+        os.remove(temp_handle.name)
+    
+    def run_bash(self, code):
+        # Execute code as bash code using a temporary file and a spawned process.
+        ftemp = self.write_to_temp(code)
+        print('Executing bash code in temp file: {}'.format(ftemp.name))
+        out, err, exitcode = self.open_process(['bash', ftemp.name])
+        # Delete temporary file
+        self.delete_temp(ftemp)
+        return out, err, exitcode
 
     def run_python(self, code):
         # Execute code as python code using a temporary file and a spawned process.
-        ftemp = NamedTemporaryFile(mode='w', delete=False)
-        ftemp.write(code)
-        ftemp.close()
-        print('Executing python in temp file: {}'.format(ftemp.name))
-        out, err, exitcode = self.run_python_file(ftemp.name)
+        ftemp = self.write_to_temp(code)
+        print('Executing python code in temp file: {}'.format(ftemp.name))
+        out, err, exitcode = self.open_process(['python', ftemp.name])
+        # Delete temporary file
+        self.delete_temp(ftemp)
         return out, err, exitcode
 
-    def get_code_from_regions(self, base_text):
-        # Gets code from code regions denoted by ``` (open) and ``` (close)
-        code_extract = ''
-        code_denote = '```'
-        code_indices = []
-        for re_match in re.finditer(code_denote, base_text):
-            code_indices.append(re_match.start())
-        if len(code_indices)==0:
-            code_extract = None
-        elif len(code_indices) % 2 == 1:
-            code_extract = '!ODD'
-        else:
-            npairs = int(len(code_indices)/2)
-            for j in range(npairs):
-                idx_end = code_indices.pop() 
-                idx_begin = code_indices.pop() + len(code_denote)
-                code_snippet = base_text[idx_begin:idx_end]
-                code_extract = code_snippet + '\n' + code_extract
-        return code_extract
-
     def ins_confused(self, tagged_message):
-        # Get the reply user tag
-        reply_user_tag = self.get_message_user_tag(tagged_message)
-        # Formulate a confused reply
-        reply = "{} [Confused Electronic Noise]\n--Please provide a command as--\n@artoo python\n```\n[PYTHON 3 CODE]\n```\n--or--\nComment '@artoo python' on a python 3 code snippet.".format(reply_user_tag)
+        # Help!
+        reply = self.ins_only_hope(tagged_message)
         return reply
 
     def ins_only_hope(self, tagged_message):
         # Get the user reply tag
         reply_user_tag = self.get_message_user_tag(tagged_message)
         # Reply to user with a help string
-        reply = "{} [Electronic Trilling]\n--Please provide a command as--\n@artoo python\n```\n[PYTHON 3 CODE]\n```\n--or--\nComment '@artoo python' on a python 3 code snippet.".format(reply_user_tag)
+        reply = "{} [Electronic Trilling]\n--Please provide a command as--\n@artoo bash\n```\n[BASH CODE]\n```\n--or--\n@artoo python\n```\n[PYTHON 3 CODE]\n```\n--or--\nComment '@artoo python' or '@artoo bash' on a code snippet.".format(reply_user_tag)
         return reply
-    
+
+    def ins_run_bash(self, tagged_message):
+        # Get the reply user tag
+        reply_user_tag = self.get_message_user_tag(tagged_message)
+        
+        # Get the message code
+        message_code, file_url = self.get_message_code(tagged_message)
+
+        # Run code with bash and formulate reply
+        if message_code:
+            print('bash code:')
+            print(message_code)
+            out, err, retcode = self.run_bash(message_code)
+            file_tag = ''
+            if file_url:
+                file_tag = 'File: {}\n'.format(file_url)
+            reply = "{} [Beep, Beep, Bleep!]\n{}stdout:\n{}\nstderr:\n{}\nreturn code: {}".format(reply_user_tag, file_tag, out, err, retcode)
+            return reply
+        else:
+            return self.ins_confused(tagged_message)
+
     def ins_run_python(self, tagged_message):
         # Get the reply user tag
         reply_user_tag = self.get_message_user_tag(tagged_message)
         
-        # Determine if there is a file to run or if there are code block(s)
-        file_url = self.get_message_file_url(tagged_message)
-        confused = False
-        if file_url:
-            # Download and run a file if supplied in file_url
-            code_to_run = self.download_file_content(file_url)
-            if code_to_run == None:
-                confused = True
-        else:
-            # If no file supplied, interpret the code region(s) in this text as python code
-            tagged_text = self.get_message_text(tagged_message)
-            code_to_run = self.get_code_from_regions(tagged_text)
-            if code_to_run == None or code_to_run=='!ODD':
-                confused = True
-        if not confused:
-            out, err, retcode = self.run_python(code_to_run)
+        # Get the message code
+        message_code, file_url = self.get_message_code(tagged_message)
+
+        # Run code with python and formulate reply
+        if message_code:
+            print('python code:')
+            print(message_code)
+            out, err, retcode = self.run_python(message_code)
             file_tag = ''
             if file_url:
                 file_tag = 'File: {}\n'.format(file_url)
-            reply = "{} [Beep, Beep, Bleep!]\n{}stdout: {}\nstderr: {}\nreturn code: {}".format(reply_user_tag, file_tag, out, err, retcode)
+            reply = "{} [Beep, Beep, Bleep!]\n{}stdout:\n{}\nstderr:\n{}\nreturn code: {}".format(reply_user_tag, file_tag, out, err, retcode)
             return reply
         else:
             return self.ins_confused(tagged_message)
