@@ -37,7 +37,7 @@ from tempfile import NamedTemporaryFile
 from SlackBot import SlackBotInterface
             
 class Artoo(SlackBotInterface):
-    def __init__(self, bot_id_file, watch_only):
+    def __init__(self, bot_id_file, watch_only, verbose):
         # Initialize the SlackBotInterface
         super(Artoo, self).__init__(bot_id_file, watch_only)
 
@@ -48,6 +48,14 @@ class Artoo(SlackBotInterface):
 
         # Timeout for running external processes
         self.PROC_TIMEOUT_SECS = 300 # 5 minutes
+
+        # Verbose status
+        self.verbose = verbose
+
+    def print_wrapper(self, to_print):
+        # Wrapper for python print that checks verbosity status
+        if self.verbose:
+            print(to_print)
 
     def open_process(self, program_list):
         # Opens a subprocess using Popen
@@ -72,13 +80,13 @@ class Artoo(SlackBotInterface):
 
     def delete_temp(self, temp_handle):
         # Delete the NamedTemporaryFile with handle temp_handle
-        print('Deleting file: {}'.format(temp_handle.name))
+        self.print_wrapper('Deleting file: {}'.format(temp_handle.name))
         os.remove(temp_handle.name)
     
     def run_bash(self, code):
         # Execute code as bash code using a temporary file and a spawned process.
         ftemp = self.write_to_temp(code)
-        print('Executing bash code in temp file: {}'.format(ftemp.name))
+        self.print_wrapper('Executing bash code in temp file: {}'.format(ftemp.name))
         out, err, exitcode = self.open_process(['bash', ftemp.name])
         # Delete temporary file
         self.delete_temp(ftemp)
@@ -87,7 +95,7 @@ class Artoo(SlackBotInterface):
     def run_python(self, code):
         # Execute code as python code using a temporary file and a spawned process.
         ftemp = self.write_to_temp(code)
-        print('Executing python code in temp file: {}'.format(ftemp.name))
+        self.print_wrapper('Executing python code in temp file: {}'.format(ftemp.name))
         out, err, exitcode = self.open_process(['python', ftemp.name])
         # Delete temporary file
         self.delete_temp(ftemp)
@@ -114,8 +122,8 @@ class Artoo(SlackBotInterface):
 
         # Run code with bash and formulate reply
         if message_code:
-            print('bash code:')
-            print(message_code)
+            self.print_wrapper('bash code:')
+            self.print_wrapper(message_code)
             out, err, retcode = self.run_bash(message_code)
             file_tag = ''
             if file_url:
@@ -134,8 +142,8 @@ class Artoo(SlackBotInterface):
 
         # Run code with python and formulate reply
         if message_code:
-            print('python code:')
-            print(message_code)
+            self.print_wrapper('python code:')
+            self.print_wrapper(message_code)
             out, err, retcode = self.run_python(message_code)
             file_tag = ''
             if file_url:

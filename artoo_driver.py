@@ -27,7 +27,8 @@ from Artoo import Artoo
 parser = argparse.ArgumentParser()
 parser.add_argument('idfile', type=str, help='Bot identity file from which to read the Bot ID and Token.')
 parser.add_argument('-watch', '--watch', action='store_true', help='Watch all slack messages and print them to the console.')
+parser.add_argument('-v', '--verbose', action='store_true', help='Print an activity log to console.')
 args = parser.parse_args()
 
-artoo = Artoo(args.idfile, args.watch)
+artoo = Artoo(args.idfile, args.watch, args.verbose)
 artoo.poll_slack()
