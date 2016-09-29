@@ -1,3 +1,0 @@
-# .bashrc but for SELinux sandbox
-# For a user 'u' and an Anaconda distribution in sbox_home/anaconda3:
-export PATH="/home/u/anaconda3/bin:$PATH"
