@@ -52,6 +52,16 @@ class Artoo(SlackBotInterface):
         # Verbose status
         self.verbose = verbose
 
+        # Get the SELinux sandbox tmp directory and prepare run commands
+        self.artoo_dir = os.getcwd()
+        self.sbox_home = 'sbox_home'
+        self.sbox_tmp  = 'tmp'
+        self.sbox_home_tmp  = os.path.join(self.sbox_home,self.sbox_tmp)
+        self.sbox_tmp_dir = os.path.join(self.artoo_dir, self.sbox_home_tmp)
+        self.se_sbox_run = ['sandbox', '-M',
+                            '-H', self.sbox_home,
+                            '-T', self.sbox_home_tmp]
+
     def print_wrapper(self, to_print):
         # Wrapper for python print that checks verbosity status
         if self.verbose:
@@ -61,7 +71,8 @@ class Artoo(SlackBotInterface):
         # Opens a subprocess using Popen
         # Popen is passed program_list to run
         # Return STDOUT, STDERR, and EXITCODE
-        proc = Popen(program_list, stdout=PIPE, stderr=PIPE)
+        sbox_run_program = self.se_sbox_run + program_list
+        proc = Popen(sbox_run_program, stdout=PIPE, stderr=PIPE)
         try:
             out, err = proc.communicate(timeout=self.PROC_TIMEOUT_SECS)
             exitcode = proc.returncode
@@ -73,7 +84,8 @@ class Artoo(SlackBotInterface):
     
     def write_to_temp(self, content):
         # Write content to a NamedTemporaryFile and return the file handle
-        ftemp = NamedTemporaryFile(mode='w', delete=False)
+        # Make the NamedTemporaryFile in the SELinux sandbox tmp directory
+        ftemp = NamedTemporaryFile(mode='w', delete=False, dir=self.sbox_tmp_dir)
         ftemp.write(content)
         ftemp.close()
         return ftemp
@@ -87,7 +99,8 @@ class Artoo(SlackBotInterface):
         # Execute code as bash code using a temporary file and a spawned process.
         ftemp = self.write_to_temp(code)
         self.print_wrapper('Executing bash code in temp file: {}'.format(ftemp.name))
-        out, err, exitcode = self.open_process(['bash', ftemp.name])
+        ftemp_se_path = os.path.join(self.sbox_tmp, os.path.basename(ftemp.name))
+        out, err, exitcode = self.open_process(['bash', ftemp_se_path])
         # Delete temporary file
         self.delete_temp(ftemp)
         return out, err, exitcode
@@ -96,7 +109,8 @@ class Artoo(SlackBotInterface):
         # Execute code as python code using a temporary file and a spawned process.
         ftemp = self.write_to_temp(code)
         self.print_wrapper('Executing python code in temp file: {}'.format(ftemp.name))
-        out, err, exitcode = self.open_process(['python', ftemp.name])
+        ftemp_se_path = os.path.join(self.sbox_tmp, os.path.basename(ftemp.name))
+        out, err, exitcode = self.open_process(['python', ftemp_se_path])
         # Delete temporary file
         self.delete_temp(ftemp)
         return out, err, exitcode
