@@ -60,18 +60,29 @@ class Artoo(SlackBotInterface):
         self.sbox_tmp_dir = os.path.join(self.artoo_dir, self.sbox_home_tmp)
         self.se_sbox_run = ['sandbox', '-M',
                             '-H', self.sbox_home,
-                            '-T', self.sbox_home_tmp]
+                            '-T', self.sbox_home_tmp,
+                            'bash', '-c']
 
     def print_wrapper(self, to_print):
         # Wrapper for python print that checks verbosity status
         if self.verbose:
             print(to_print)
 
-    def open_process(self, program_list):
+    def form_se_cmd(self, program_cmd):
+        # Returns the Popen command for a SELinux sandboxed
+        # program running program_cmd
+        # program_cmd cannot contain single quotes
+        if "'" in program_cmd:
+            program_cmd = 'echo "ERROR: Single quote in program_cmd"'
+        source_sboxrc = 'source ~/.sboxrc'
+        sbox_bash_cmd = "'" + source_sboxrc + ' && ' + program_cmd + "'"
+        sbox_run_cmdl = self.se_sbox_run + [sbox_bash_cmd]
+        return sbox_run_cmdl
+
+    def open_process(self, program_cmd):
         # Opens a subprocess using Popen
-        # Popen is passed program_list to run
         # Return STDOUT, STDERR, and EXITCODE
-        sbox_run_program = self.se_sbox_run + program_list
+        sbox_run_program = self.form_se_cmd(program_cmd)
         proc = Popen(sbox_run_program, stdout=PIPE, stderr=PIPE)
         try:
             out, err = proc.communicate(timeout=self.PROC_TIMEOUT_SECS)
@@ -100,7 +111,7 @@ class Artoo(SlackBotInterface):
         ftemp = self.write_to_temp(code)
         self.print_wrapper('Executing bash code in temp file: {}'.format(ftemp.name))
         ftemp_se_path = os.path.join(self.sbox_tmp, os.path.basename(ftemp.name))
-        out, err, exitcode = self.open_process(['bash', ftemp_se_path])
+        out, err, exitcode = self.open_process('bash ' + ftemp_se_path)
         # Delete temporary file
         self.delete_temp(ftemp)
         return out, err, exitcode
@@ -110,7 +121,7 @@ class Artoo(SlackBotInterface):
         ftemp = self.write_to_temp(code)
         self.print_wrapper('Executing python code in temp file: {}'.format(ftemp.name))
         ftemp_se_path = os.path.join(self.sbox_tmp, os.path.basename(ftemp.name))
-        out, err, exitcode = self.open_process(['python', ftemp_se_path])
+        out, err, exitcode = self.open_process('python ' + ftemp_se_path)
         # Delete temporary file
         self.delete_temp(ftemp)
         return out, err, exitcode
