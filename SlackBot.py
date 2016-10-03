@@ -47,8 +47,10 @@ class SlackBotInterface(SlackClient):
         # Bot authentication header for downloading files using requests
         self.request_headers = {'Authorization': 'Bearer {}'.format(self.token)}
 
-        # Instructions are alphanumeric with underscores but no other characters are allowed, including spaces
-        self.re_instruction = self.tag + '\s*(\w*)' # The RE is '[self.tag][unicode whitespace][unicode word]'
+        # Instructions are alphanumeric with underscores
+        # but no other characters are allowed, including spaces
+        # The RE is '[self.tag][unicode whitespace][unicode word]'
+        self.re_instruction = self.tag + '\s*(\w*)' 
 
         # Dict mapping instructions (keys) to functions (values)
         self.instruction_set = {}
