@@ -1,0 +1,16 @@
+INSTRUCTION = python
+Given Message;
+if(Message Has File) {
+  CODE = Download File Contents;
+} else {
+  CODE = Extract Code Regions;
+}
+if(Found CODE) {
+  Create Temp File;
+  Write CODE To File TEMP;
+  REPLY = Execution Subprocess;
+  Delete TEMP;
+} else {
+  REPLY = *Confused*
+}
+Return REPLY;

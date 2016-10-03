@@ -1,0 +1,11 @@
+Connect to Slack;
+while(True) {
+  Buffer New Messages;
+  while(!Buffer Empty) {
+    Pop Message From Buffer;
+    if(Tagged In Message) {
+      **Process Message**;
+    }
+  }
+  Sleep;
+}

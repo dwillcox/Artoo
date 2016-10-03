@@ -1,0 +1,9 @@
+INSTRUCTION = Word After Tag;
+if(INSTRUCTION Valid) {
+  Map INSTRUCTION to function F;
+  Evaluate
+  Reply = F(Message);
+  **Post Valid Reply**;
+} else {
+  **Post Confused Reply**;
+}
