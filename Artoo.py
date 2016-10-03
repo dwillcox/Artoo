@@ -78,7 +78,8 @@ class Artoo(SlackBotInterface):
         # Opens a subprocess using Popen
         # Return STDOUT, STDERR, and EXITCODE
         proc_env = os.environ.copy()
-        proc_env['PATH'] = os.path.join(self.sbox_home_dir,'sbox_anaconda','bin') + ':' + proc_env['PATH']
+        sbox_pypath = os.path.join(self.sbox_home_dir,'sbox_anaconda','bin')
+        proc_env['PATH'] = sbox_pypath + ':' + proc_env['PATH']
         sbox_run_program = self.form_se_cmd(program_cmd)
         proc = Popen(sbox_run_program, stdout=PIPE, stderr=PIPE, env=proc_env)
         try:
